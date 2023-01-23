@@ -38,26 +38,51 @@ namespace signalRTest.Hubs
             return res;
         }
 
-        public async Task EdtMessage(string something)
+        public async Task<SalesEntryMessage> EdtMessage([FromBody] UpdateDiaryMessageModel message)
         {
             await Task.Delay(5000);
-            await Clients.AllExcept(Context.ConnectionId).SendAsync("EditedDiaryMessageReceived", something);
+            var res = new SalesEntryMessage
+            {
+                SalesOrderId = 45504,
+                SalesServiceLineId = null,
+                SalesOrderLineId = null,
+                CosmosDBId = new Guid(message.MessageId),
+                ObjectID = "45504",
+                LastUpdatedAt = DateTime.Now,
+                UserADId = "fa89a99c-cf31-430b-9b03-467e4d870f67",
+                Message = new MessageEnvelope
+                {
+                    Text = $"<p>{message.MessageText}</p>",
+                    Mentions = new List<DiaryMessageMention>()
+                },
+                RemovedAt = null,
+                User = "Ivanna Kitsera",
+                OccuredAt = DateTime.Parse("2023-01-23T04:46:09.6168956Z"),
+            };
+            await Clients.AllExcept(Context.ConnectionId).SendAsync("EditedDiaryMessageReceived", res);
+            return res;
         }
 
-        public async Task DeleteMessage(string something)
+        public async Task<string> DeleteMessage([FromBody] DeleteMessageModel something)
         {
             await Task.Delay(5000);
-            await Clients.AllExcept(Context.ConnectionId).SendAsync("DeletedDiaryMessageReceived", something);
+            await Clients.AllExcept(Context.ConnectionId).SendAsync("DeletedDiaryMessageReceived", something.MessageId);
+            return something.MessageId;
         }
 
 
-        public async Task ReadAllMessages()
+        public async Task AddedHistoricalRecord(object item)
         {
-            await Task.Delay(3000);
-            await Clients.Clients(Context.ConnectionId).SendAsync("ReadAllMessages");
-        }
 
-   
+        }
+    }
+
+    public class DeleteMessageModel
+    {
+        [Required]
+        public string ObjectType { get; set; }
+        [Required]
+        public string MessageId { get; set; }
     }
 
     public class AddDiaryMessageModel<T>
@@ -69,6 +94,18 @@ namespace signalRTest.Hubs
         [Required]
         public string ObjectType { get; set; }
 
+        [Required]
+        [MaxLength(5000)]
+        public string MessageText { get; set; }
+    }
+
+
+    public class UpdateDiaryMessageModel
+    { 
+        [Required]
+        public string MessageId { get; set; }
+        [Required]
+        public string ObjectType { get; set; }
         [Required]
         [MaxLength(5000)]
         public string MessageText { get; set; }
