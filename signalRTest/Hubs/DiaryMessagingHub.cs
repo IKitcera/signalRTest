@@ -1,16 +1,15 @@
-﻿using Microsoft.AspNetCore.SignalR;
-using System.Diagnostics;
-using System.Threading;
-using System;
-using System.Threading.Tasks;
-using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Threading.Tasks;
 
 namespace signalRTest.Hubs
 {
-    public class DiaryMessagingHub: Hub
+    public class DiaryMessagingHub : Hub
     {
         public async Task<SalesEntryMessage> SendMessage([FromBody] AddDiaryMessageModel<int> newMssage)
         {
@@ -71,11 +70,80 @@ namespace signalRTest.Hubs
         }
 
 
-        public async Task AddedHistoricalRecord(object item)
+        public async Task AddedHistoricalRecord(SalesEntryHistoricalRecord record)
         {
+            await Task.Delay(1000);
+            var res = new SalesEntryHistoricalRecord
+            {
+                SalesOrderId = 45504,
+                SalesOrderLineId = null,
+                SalesServiceLineId = null,
+                Action = 0,
+                ObjectID = "45504",
+                Diff = JToken.FromObject(
+                     new List<string>
+                     {
+                        "DVD",
+                        "SSD"
+                     }
+                ),
+                EventData = null,
+                EntityType = "SalesOrder",
+                User = "Ivanna Kitsera",
+                OccuredAt = DateTime.Now
+            };
+
+            await Clients.All.SendAsync("NewDiaryItemReceived", res);
+        }
+
+
+        public enum AuditActionV2
+        {
+            Create,
+            Update,
+            Delete,
+            Event
+        }
+
+        public enum EventMetadataType
+        {
+            TripletexOrderId,
+            ControllingStatusChanged
 
         }
+        public interface IDiaryHistoricalRecord : IDiaryItem
+        {
+            public AuditActionV2 Action { get; set; }
+            public string ObjectID { get; }
+            public JToken? Diff { get; set; }
+        }
+
+        public abstract class DiaryHistoricalRecord : DiaryItem, IDiaryHistoricalRecord
+        {
+            public AuditActionV2 Action { get; set; }
+            public string ObjectID { get; set; }
+            public JToken? Diff { get; set; }
+            public DiaryHistroicalRecordActionMetadata? EventData { get; set; }
+            public override DiaryItemTypes DiaryItemType => DiaryItemTypes.HistoricalRecord;
+        }
+
+        public class DiaryHistroicalRecordActionMetadata
+        {
+            public string Message { get; set; }
+            public string Data { get; set; }
+            public EventMetadataType Type { get; set; }
+        }
+
+        public class SalesEntryHistoricalRecord : DiaryHistoricalRecord
+        {
+            public int SalesOrderId { get; set; }
+
+            public int? SalesOrderLineId { get; set; }
+
+            public int? SalesServiceLineId { get; set; }
+        }
     }
+
 
     public class DeleteMessageModel
     {
@@ -101,7 +169,7 @@ namespace signalRTest.Hubs
 
 
     public class UpdateDiaryMessageModel
-    { 
+    {
         [Required]
         public string MessageId { get; set; }
         [Required]
@@ -111,7 +179,8 @@ namespace signalRTest.Hubs
         public string MessageText { get; set; }
     }
 
-    public class SalesEntryMessage : DiaryMessage { 
+    public class SalesEntryMessage : DiaryMessage
+    {
 
         public int SalesOrderId { get; set; }
 
